@@ -17,12 +17,12 @@ concurrency:
 jobs:
   host-build-and-test:
     name: GCC C99 host build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show compiler
         run: gcc --version
@@ -41,12 +41,12 @@ jobs:
 
   sanitizer:
     name: Undefined behavior sanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Prepare output directory
         run: mkdir -p build
