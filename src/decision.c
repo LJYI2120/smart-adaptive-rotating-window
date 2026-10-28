@@ -170,7 +170,7 @@ static uint8_t decision_rain_requires_close(const env_data_t *env,
 /*
  * 对应说明书：4.3.5 自动追光角度
  * 水平光差决定旋转方向和幅值；垂直光差参与“是否需要追光”的判断，
- * 但目标角严格采用主提示词指定的水平差公式。
+ * 但目标角严格采用系统约定的水平差公式。
  */
 static float decision_track_angle(const env_data_t *env)
 {
@@ -237,7 +237,7 @@ static void decision_commit(window_cmd_t *cmd,
 
 /*
  * 对应说明书：4.3 决策仲裁逻辑
- * 主提示词规定的优先级在函数内按自上而下顺序实现，后置规则不会覆盖
+ * 系统约定的优先级在函数内按自上而下顺序实现，后置规则不会覆盖
  * 更高优先级动作。调用者传入的 manual_reset 在入口保留。
  */
 void decision_arbitrate(const env_data_t *env,

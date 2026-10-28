@@ -470,8 +470,8 @@ const status_snapshot_t *status_get_latest(void)
 }
 
 /*
- * 测试与应用监控使用的只读入口。由于固定文件树未包含 app.h，这些
- * 应用级诊断函数在 app.c 中实现，并由 main/test 以最小外部声明使用。
+ * 测试与应用监控使用的只读入口。公共声明集中在 app.h，定义保留在
+ * 本文件，避免不同调用方重复声明造成接口漂移。
  */
 uint32_t app_get_timer_tick_count(void)
 {
