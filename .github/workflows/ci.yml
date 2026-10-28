@@ -64,3 +64,107 @@ jobs:
 
       - name: Run UBSan tests
         run: ./build/test_host_ubsan
+
+  pc-application:
+    name: PC application tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pc_app/requirements.txt
+            pc_app/requirements-dev.txt
+
+      - name: Install PC dependencies
+        run: python -m pip install -r pc_app/requirements.txt pytest ruff
+
+      - name: Lint PC application
+        run: ruff check pc_app/src pc_app/tests pc_app/tools
+
+      - name: Run PC tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -c pc_app/pyproject.toml pc_app/tests
+
+  esp32-firmware:
+    name: ESP32 firmware build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install PlatformIO
+        run: python -m pip install platformio==6.2.0
+
+      - name: Compile firmware logic against host stubs
+        run: |
+          mkdir -p build
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -Ifirmware/host_test/stubs \
+            -Ifirmware/esp32/include \
+            -Ifirmware/esp32/lib/sw_protocol \
+            firmware/esp32/lib/sw_protocol/sw_protocol.cpp \
+            firmware/esp32/src/angle_feedback.cpp \
+            firmware/esp32/src/sensor_hub.cpp \
+            firmware/esp32/src/motion_controller.cpp \
+            firmware/esp32/src/main.cpp \
+            firmware/host_test/stubs/arduino_runtime.cpp \
+            firmware/host_test/host_smoke.cpp \
+            -o build/firmware_host_smoke
+          ./build/firmware_host_smoke
+
+      - name: Run native protocol tests
+        run: pio test -d firmware/esp32 -e native_protocol
+
+      - name: Compile firmware
+        run: pio run -d firmware/esp32 -e esp32dev
+
+  windows-package:
+    name: Windows packaged application
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pc_app/requirements.txt
+            pc_app/requirements-build.txt
+
+      - name: Build executable
+        shell: powershell
+        run: .\pc_app\build_windows.ps1
+
+      - name: Upload packaged application
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartWindowController-windows
+          path: pc_app/dist/SmartWindowController
+          if-no-files-found: error

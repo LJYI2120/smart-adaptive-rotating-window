@@ -1,5 +1,8 @@
 # Host build outputs
 build/
+dist/
+artifacts/
+.pio/
 *.o
 *.obj
 *.d
@@ -9,6 +12,11 @@ build/
 # IDE and editor state
 .vscode/
 .idea/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
 *.user
 *.suo
 *.swp

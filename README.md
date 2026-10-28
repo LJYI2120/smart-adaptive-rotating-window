@@ -11,16 +11,18 @@
 |---|---|
 | 软件名称 | 智能环境自适应旋转窗控制系统 |
 | 软著版本 | V1.0 |
-| 当前发行版 | [v1.0.1](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.0.1) |
-| 实现语言 | C99 |
-| 运行模型 | 裸机，无 RTOS |
+| PC 原型版本 | 0.1.0 |
+| 实现语言 | Python 3、C++17、C99 |
+| 运行平台 | Windows PC + ESP32 |
 
 [![build-and-test](https://github.com/LJYI2120/smart-adaptive-rotating-window/actions/workflows/ci.yml/badge.svg)](https://github.com/LJYI2120/smart-adaptive-rotating-window/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/LJYI2120/smart-adaptive-rotating-window)](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases)
 
-面向户外旋转窗的 C99 裸机控制内核。系统采集温度、湿度、风速、雨量和四向光照，经过滤波与有效性检查后，按照“安全优先、雨天保护、手动优先、通风舒适、自动追光、节能保持”的顺序作出决策，并通过主窗角度闭环和副窗行程控制执行动作。
+面向辐射制冷智能窗的“PC 高级决策 + ESP32 本地安全执行”原型。PC 软件负责太阳方位计算、追光目标、模式切换、实时曲线与日志；ESP32 负责四路光照采集、串口协议、步进电机脉冲、限位、急停和通信看门狗。
 
-> 当前发行版提供平台无关控制内核和可测试的主机 HAL 桩。真实 STM32 电气映射、传感器标定、驱动死区和机械参数必须按目标硬件完成验证后投入使用。
+仓库同时保留原有的 C99 裸机控制内核，用于环境安全仲裁、PWM 电机控制和主机仿真参考。实际竞赛原型使用新增的 `pc_app` 和 `firmware/esp32`。
+
+![PC control application](docs/images/pc_app.png)
 
 ## 版本更新
 
@@ -34,6 +36,12 @@
 
 ## 主要特性
 
+- Windows 桌面应用支持串口扫描、自动连接、一键启动和停止。
+- PC 端计算太阳方位、归一化光强 PID 修正、模式目标和运动限速。
+- ESP32 直接读取 TCA9548A 后的四路 TSL2561，并回传实时光强。
+- 系统固件使用 CRC16 帧、设备握手、命令确认和通信看门狗。
+- 非阻塞 STEP/DIR 脉冲、启动归零、NC 限位和物理急停保护。
+- PyInstaller 可生成脱离 Python 环境的 Windows 发布目录。
 - 标准 C99，无 RTOS、无动态内存、无递归、无第三方运行库。
 - 温度、湿度、风速、雨量各一路以及四向光照采样。
 - 滑动平均与中值滤波融合，NaN、断线、饱和和量程检查。
@@ -45,7 +53,28 @@
 - 中断与主循环共享数据使用短临界区复制。
 - 固定容量状态历史与主机可执行回归测试。
 
-## 控制架构
+## 系统架构
+
+```text
+Windows PC application
+  ├─ solar position and tracking target
+  ├─ mode and parameter selection
+  ├─ relative-light chart and logs
+  └─ CRC-protected commands, 250 ms heartbeat
+                    │ USB serial 115200 8N1
+                    ▼
+ESP32 firmware
+  ├─ TCA9548A + four TSL2561 sensors
+  ├─ 1500 ms command watchdog
+  ├─ NC limit and physical emergency stop
+  ├─ homing and non-blocking STEP/DIR
+  └─ 200 ms telemetry
+                    │
+                    ▼
+TMC2209 -> NEMA17 -> single-axis window
+```
+
+## C99 control core
 
 ```text
 100 ms timer
@@ -101,12 +130,41 @@ src/
   main.c            裸机入口和主机演示
 test/
   test_host.c       主机自动化测试
+pc_app/
+  src/smart_window/ Windows 桌面应用
+  tests/            Python 自动化测试
+firmware/esp32/     PlatformIO 固件
+protocol/           串口协议说明
+docs/               接线、操作和竞赛材料
 Makefile
 DESIGN_NOTES.md
 soft_register_order.md
 ```
 
 ## 构建与测试
+
+### Windows PC 应用
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\pc_app\build_windows.ps1
+```
+
+生成目录：`pc_app/dist/SmartWindowController/`。
+
+```text
+PC application tests: 18 passed
+```
+
+### ESP32 固件
+
+使用 PlatformIO 打开 `firmware/esp32` 并选择 `esp32dev` 环境；命令行构建：
+
+```bash
+pio run -d firmware/esp32
+pio test -d firmware/esp32 -e native_protocol
+```
+
+### C99 控制内核
 
 依赖：GCC、GNU Make。
 
@@ -158,15 +216,23 @@ test_host: 68 checks, 0 failures
 
 ## 已知限制
 
-- 不包含具体 MCU 厂商工程、链接脚本和启动文件。
-- 不包含实体传感器、电机驱动板和机械结构参数。
-- `status_upload` 生成固定容量快照，实际 UART/CAN 发送需在移植层接入。
+- 默认引脚、电机比例和传感器方向需要与实际接线核对。
+- TSL2561 数据为相对可见光计数，尚未完成照度计标定。
+- 当前采用限位归零加步进计数；可选 AS5600 需要完成机械零位标定。
+- CH340 驱动、24 V 电源和急停接线必须按实物验证。
+- C99 参考内核中的 UART/CAN 上传仍需实际平台接入。
 - 主机测试不能替代安全、电气、EMC、耐久和机械认证。
 
 ## 文档
 
 - [`DESIGN_NOTES.md`](DESIGN_NOTES.md)：数据流、状态迁移、主副窗联动、阈值与异常表。
 - [`soft_register_order.md`](soft_register_order.md)：软著源代码前后 30 页裁切建议。
+- [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md)：PC 与 ESP32 串口协议。
+- [`docs/WIRING.md`](docs/WIRING.md)：接线、电源与安全输入。
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md)：PC 软件操作和故障处理。
+- [`docs/CONTEST_PLAN.md`](docs/CONTEST_PLAN.md)：竞赛选型、预算和测试计划。
+- [`docs/SOFTWARE_COPYRIGHT.md`](docs/SOFTWARE_COPYRIGHT.md)：PC 与固件软著材料映射。
+- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：桌面端依赖和许可证说明。
 - [GitHub Releases](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases)：固定版本源码快照。
 
 ## 版权与授权
