@@ -1,4 +1,8 @@
-# 智能环境自适应旋转窗控制系统 V1.0
+# 项目名称：基于辐射制冷膜的可旋转智能窗建筑节能系统
+> ⚠️ 重要版权提示
+本仓库为**仅展示用途**。任何人如需使用、引用、复用代码/方案，**必须获得作者书面授权**。
+仅允许在线浏览学习；禁止直接复制、移植、参赛、商用。
+> # 智能环境自适应旋转窗控制系统 V1.0
 
 [![build-and-test](https://github.com/LJYI2120/smart-adaptive-rotating-window/actions/workflows/ci.yml/badge.svg)](https://github.com/LJYI2120/smart-adaptive-rotating-window/actions/workflows/ci.yml)
 
@@ -145,3 +149,6 @@ test_host: 68 checks, 0 failures
 ## 使用与许可
 
 本仓库当前未声明开源许可证。公开可见不等于授权复制、修改、分发或商业使用；如需开放复用，请由权利人明确选择并添加许可证。
+版权所有 ©2026【刘俊逸】，保留一切权利。
+本项目包含源代码、文档、设计材料均为作者知识产权。未经作者书面授权，不得用于任何复制、修改、二次分发、竞赛、商业项目等使用行为。
+授权申请请联系：【748942850@qq.com】
