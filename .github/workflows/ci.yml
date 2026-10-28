@@ -121,7 +121,7 @@ jobs:
         run: |
           mkdir -p build
           g++ -std=c++17 -Wall -Wextra -Werror \
-            -Ifirmware/esp32/test/host_stubs \
+            -Ifirmware/host_test/stubs \
             -Ifirmware/esp32/include \
             -Ifirmware/esp32/lib/sw_protocol \
             firmware/esp32/lib/sw_protocol/sw_protocol.cpp \
@@ -129,8 +129,8 @@ jobs:
             firmware/esp32/src/sensor_hub.cpp \
             firmware/esp32/src/motion_controller.cpp \
             firmware/esp32/src/main.cpp \
-            firmware/esp32/test/host_stubs/arduino_runtime.cpp \
-            firmware/esp32/test/host_smoke.cpp \
+            firmware/host_test/stubs/arduino_runtime.cpp \
+            firmware/host_test/host_smoke.cpp \
             -o build/firmware_host_smoke
           ./build/firmware_host_smoke
 
