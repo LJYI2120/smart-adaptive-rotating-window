@@ -10,18 +10,21 @@ LDFLAGS :=
 LDLIBS := -lm
 
 BUILD_DIR := build
-HOST_BIN := $(BUILD_DIR)/app_host
-TEST_BIN := $(BUILD_DIR)/test_host
 OBJ_DIR := $(BUILD_DIR)/obj
 TEST_OBJ_DIR := $(BUILD_DIR)/test-obj
 
 ifeq ($(OS),Windows_NT)
+EXEEXT := .exe
 MKDIR_P = if not exist "$(1)" mkdir "$(1)"
 RM_DIR = if exist "$(1)" rmdir /S /Q "$(1)"
 else
+EXEEXT :=
 MKDIR_P = mkdir -p "$(1)"
 RM_DIR = rm -rf "$(1)"
 endif
+
+HOST_BIN := $(BUILD_DIR)/app_host$(EXEEXT)
+TEST_BIN := $(BUILD_DIR)/test_host$(EXEEXT)
 
 COMMON_SOURCES := \
 	src/hal_stub.c \

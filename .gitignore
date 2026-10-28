@@ -1,0 +1,26 @@
+# Host build outputs
+build/
+*.o
+*.obj
+*.d
+*.exe
+*.out
+
+# IDE and editor state
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+*~
+
+# Local diagnostics and platform metadata
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Local packaging
+*.zip
+*.7z
+*_源码/

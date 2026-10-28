@@ -1,0 +1,66 @@
+name: build-and-test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-build-and-test:
+    name: GCC C99 host build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Show compiler
+        run: gcc --version
+
+      - name: Clean
+        run: make clean
+
+      - name: Build host application
+        run: make host
+
+      - name: Run host tests
+        run: make test
+
+      - name: Run host demonstration
+        run: make run
+
+  sanitizer:
+    name: Undefined behavior sanitizer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Prepare output directory
+        run: mkdir -p build
+
+      - name: Compile with UBSan
+        run: |
+          gcc \
+            -std=c99 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=undefined -fno-sanitize-recover=all \
+            -Iinclude -DHOST_BUILD=1 \
+            src/hal_stub.c src/sensor.c src/filter.c src/decision.c \
+            src/state_machine.c src/main_window.c src/sub_window.c \
+            src/safety.c src/motor.c src/app.c test/test_host.c \
+            -lm -o build/test_host_ubsan
+
+      - name: Run UBSan tests
+        run: ./build/test_host_ubsan

@@ -4,6 +4,7 @@
  * 对应说明书章节：3.3 软件运行架构
  */
 #include "config.h"
+#include "app.h"
 #include "decision.h"
 #include "hal.h"
 #include "state_machine.h"
@@ -11,15 +12,6 @@
 #ifdef HOST_BUILD
 #include <stdio.h>
 #endif
-
-/* app.h 不在固定文件树中，应用调度入口在此做最小外部声明。 */
-void app_init(void);
-void app_run(void);
-void app_timer_tick(void);
-const env_data_t *app_get_filtered_environment(void);
-const window_cmd_t *app_get_command(void);
-system_state_t app_get_state(void);
-uint32_t app_get_timer_tick_count(void);
 
 /*
  * 目标板定时器回调伪代码对应实现：真实工程把本函数挂到 100 ms 周期

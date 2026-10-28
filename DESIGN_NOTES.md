@@ -117,7 +117,7 @@
 
 | 状态 | 代码枚举 | 进入条件 | 主窗目标 | 副窗 | 离开条件 |
 |---|---|---|---:|---|---|
-| 安全锁 | `ST_SAFE_LOCK` | 风锁、雨锁、传感器故障、通信超时、堵转 | `SAFE_ANGLE` | 关 | 故障清除且人工复位或 60 s 超时 |
+| 安全锁 | `ST_SAFE_LOCK` | 风锁、雨锁、传感器故障、通信超时、堵转 | `SAFE_ANGLE` | 关 | 环境故障清除后，人工复位或对应安全超时；机械堵转默认必须人工复位 |
 | 雨天保护 | `ST_CLOSE_RAIN` | 雨量 ≥ `RAIN_DETECT` | `RAIN_ANGLE` | 关 | 雨量低于检测值减迟滞 |
 | 手动 | `ST_MANUAL` | 有效帧、角度合法、年龄 ≤ 30 s | 手动角度 | 手动开关 | 30 s 超时或更高优先级 |
 | 通风 | `ST_VENTILATE` | 温度/湿度越过舒适区、风速安全、无雨 | `VENT_ANGLE` | 开 | 回到舒适区迟滞内侧 |
@@ -220,6 +220,8 @@
 | `PID_KI` | 0.05 | 积分 | 增量 PID 积分项 |
 | `PID_KD` | 0.1 | 微分 | 增量 PID 微分项 |
 | `SUB_WINDOW_TRAVEL_MS` | 5000 | ms | 副窗行程超时 |
+| `MOTOR_DIRECTION_DEADTIME_US` | 20 | µs | 电机反向前桥臂关断时间 |
+| `MOTOR_STALL_AUTO_CLEAR_ENABLE` | 0 | 布尔 | 是否允许机械堵转超时自动清除 |
 | `STALL_CURRENT_MA` | 800 | mA | 堵转电流门限 |
 | `MANUAL_TIMEOUT_MS` | 30000 | ms | 手动命令有效期 |
 | `SAMPLE_PERIOD_MS` | 100 | ms | 采样和闭环周期 |
@@ -243,8 +245,9 @@
 | 通信超时 | `safety_override` | 环境快照年龄 > 1000 ms | `comm_timeout=1`，安全锁 | 新时间戳进入窗口 |
 | 主窗越限 | `limit_check` | 角度非有限或越过 ±90° | PWM=0，`hal_motor_stop` | 反馈回到范围 |
 | 主窗角度死区 | `main_window_angle_ctrl` | 绝对误差 ≤ 1.5° | PWM=0，清 PID 历史 | 再次超出死区 |
-| 副窗电流堵转 | `motor_stall_protect` | 驱动中电流 > 800 mA | 停机，`motor_stall=1` | 人工复位或 60 s 超时且电流正常 |
-| 副窗行程超时 | `sub_window_service` | 5 s 未到目标限位 | 停机，`motor_stall=1` | 人工复位或超时策略 |
+| 副窗电流堵转 | `motor_stall_protect` | 驱动中电流 > 800 mA | 停机，`motor_stall=1` | 默认人工复位；显式启用自动策略后才允许超时且电流正常时清除 |
+| 副窗行程超时 | `sub_window_service` | 5 s 未到目标限位 | 停机，`motor_stall=1` | 默认人工检查并复位 |
+| 副窗位置未知 | `sub_identify_position` | 关闭和打开限位均未触发 | 进入 `SUB_WINDOW_UNKNOWN` | 打开请求先执行关闭归位 |
 | 双限位同时有效 | `sub_identify_position` | 关闭和打开限位同时为高 | 副窗故障，堵转标志 | 人工检查并复位 |
 | 手动帧长度错误 | `manual_cmd_parse` | 长度不是 8 字节 | 丢弃 | 下一完整帧 |
 | 手动帧头或 CRC 错误 | `manual_cmd_parse` | 帧头不是 0xA5 或 CRC8 不匹配 | 丢弃 | 下一完整帧 |
@@ -254,12 +257,12 @@
 
 ## 8. 并发与快照一致性
 
-目标系统为裸机模型，但仍可能存在定时器与主循环交错。工程采用两个序号锁：
+目标系统为裸机模型，但仍可能存在定时器与主循环交错。工程使用
+`hal_critical_enter` / `hal_critical_exit` 包围完整结构体复制，保证环境、
+窗口命令和手动命令不会出现半更新快照。
 
-1. `g_environment_sequence` 保护定时器写入、主循环读取的环境快照。
-2. `g_command_sequence` 保护主循环写入、定时器读取的窗口命令。
-
-写入方在一次结构体更新前后分别递增序号，读取方仅在前后序号一致且为偶数时采用数据。重试三次仍冲突时，环境默认全无效，命令默认安全角，确保失败方向是保守停机。
+临界区只复制结构体或更新短字段，不执行滤波、PID、延时或通信。目标板
+HAL 必须保存原中断状态并支持嵌套；主机桩用深度计数模拟该行为。
 
 ## 9. 主机验证记录
 
@@ -280,7 +283,7 @@ Smart window host demo completed
 state=AUTO_TRACK angle_target=90.00 wind=0.60 uploads=7
 timer_ticks=39 simulated_ms=4000
 
-test_host: 58 checks, 0 failures
+test_host: 68 checks, 0 failures
 ```
 
 覆盖场景：
@@ -294,6 +297,8 @@ test_host: 58 checks, 0 failures
 - 主窗双侧限位、NaN 输入和停电机。
 - 副窗电流堵转。
 - 副窗 5 s 行程超时。
+- 副窗位置未知时先执行关闭归位。
+- 机械堵转默认不能由时间自动清除。
 - 传感器 NaN 与量程越界。
 - 滑动平均与中值尖峰抑制。
 - 8 字节手动帧 CRC 解析与损坏帧拒绝。
@@ -301,7 +306,7 @@ test_host: 58 checks, 0 failures
 
 ## 10. 自检清单
 
-- [x] 主提示词列出的 22 个工程文件全部存在。
+- [x] 主提示词列出的 26 个固定文件全部存在，并新增 `include/app.h` 统一应用接口。
 - [x] `system_state_t`、`env_data_t`、`window_cmd_t`、`safety_status_t`、`manual_cmd_t` 名称和字段稳定。
 - [x] 关键函数签名与主提示词一致。
 - [x] 每个声明函数均有完整实现。
@@ -316,7 +321,10 @@ test_host: 58 checks, 0 failures
 - [x] 风、雨、传感器、通信和堵转均能触发安全覆盖。
 - [x] 主循环裁决与定时器采样/闭环职责分离。
 - [x] 主机版严格告警编译成功。
-- [x] 7 个必测场景全部覆盖，另有 6 个补充场景通过，共 58 项断言。
-- [x] 环境与命令共享结构体使用序号锁。
+- [x] 7 个必测场景全部覆盖，另有 8 个补充场景通过，共 68 项断言。
+- [x] 环境、命令和手动命令共享结构体使用可嵌套临界区复制。
+- [x] 电机反向前配置软件死区，并将 HAL 实现要求写入 README。
+- [x] 未知副窗位置不再默认判为关闭，打开请求先执行关闭归位。
+- [x] 机械堵转默认要求人工复位。
 - [x] `soft_register_order.md` 提供前 30 页和后 30 页顺序。
 - [x] `DESIGN_NOTES.md` 提供三张图、函数映射、阈值表和异常表。

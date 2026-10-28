@@ -4,6 +4,7 @@
  * 对应说明书章节：10.2 主机自动化测试
  */
 #include "config.h"
+#include "app.h"
 #include "decision.h"
 #include "filter.h"
 #include "hal.h"
@@ -17,20 +18,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-
-/*
- * 固定文件树没有 app.h，测试对应用诊断入口作最小外部声明。
- * 这些入口只读，不参与核心控制逻辑。
- */
-void app_init(void);
-void app_run(void);
-void app_timer_tick(void);
-void app_set_manual_command(const manual_cmd_t *manual);
-const env_data_t *app_get_filtered_environment(void);
-const safety_status_t *app_get_safety_status(void);
-const window_cmd_t *app_get_command(void);
-system_state_t app_get_state(void);
-uint32_t app_get_timer_tick_count(void);
 
 static unsigned int g_checks;
 static unsigned int g_failures;
@@ -355,6 +342,57 @@ static void test_sub_window_timeout(void)
   CHECK_TRUE(safety.motor_stall != 0u);
 }
 
+/* 补充测试：位置未知时不得假定副窗已经关闭，打开请求先执行关闭归位。 */
+static void test_sub_window_unknown_position(void)
+{
+  safety_status_t safety;
+
+  test_reset_modules();
+  safety_init(&safety);
+  motor_bind_safety_status(&safety);
+  sub_window_bind_safety_status(&safety);
+  hal_set_mock_gpio(LIMIT_PIN_SUB_CLOSED, 0u);
+  hal_set_mock_gpio(LIMIT_PIN_SUB_OPEN, 0u);
+  sub_window_init();
+
+  CHECK_TRUE(sub_window_get_state() == SUB_WINDOW_UNKNOWN);
+  CHECK_TRUE(sub_window_position_is_known() == 0u);
+  sub_window_open();
+  CHECK_TRUE(sub_window_get_state() == SUB_WINDOW_CLOSING);
+  CHECK_TRUE(sub_window_is_moving() != 0u);
+}
+
+/* 补充测试：机械堵转默认只能在人工复位后清除。 */
+static void test_motor_stall_requires_reset(void)
+{
+  env_data_t env;
+  safety_status_t safety;
+
+  test_reset_modules();
+  safety_init(&safety);
+  motor_bind_safety_status(&safety);
+  sub_window_bind_safety_status(&safety);
+  hal_set_mock_gpio(LIMIT_PIN_SUB_CLOSED, 0u);
+  hal_set_mock_gpio(LIMIT_PIN_SUB_OPEN, 1u);
+  sub_window_init();
+  hal_set_mock_adc(ADC_CHANNEL_MOTOR_CURRENT, 100);
+  sub_window_close();
+  sub_window_service();
+  CHECK_TRUE(safety.motor_stall != 0u);
+
+  hal_set_mock_adc(ADC_CHANNEL_MOTOR_CURRENT, 5);
+  hal_delay_ms(SAFE_LOCK_RESET_MS + 1u);
+  env = test_make_environment();
+  env.timestamp_ms = hal_get_ms();
+  safety_override(&env, &safety);
+  CHECK_TRUE(safety.motor_stall != 0u);
+  CHECK_TRUE(motor_has_stall() != 0u);
+
+  motor_clear_stall();
+  CHECK_TRUE(safety.motor_stall == 0u);
+  CHECK_TRUE(motor_has_stall() == 0u);
+}
+
 /* 补充测试：NaN与越界传感器不进入有效集合。 */
 static void test_sensor_validation(void)
 {
@@ -473,6 +511,7 @@ static void test_integrated_pipeline(void)
   safety = app_get_safety_status();
   CHECK_TRUE(safety_any_lock(safety) == 0u);
   CHECK_TRUE(app_get_timer_tick_count() == 8u);
+  CHECK_TRUE(hal_mock_get_critical_enter_count() > 0u);
   CHECK_TRUE(status_get_upload_count() > 0u);
   CHECK_TRUE(app_get_state() == ST_AUTO_TRACK);
   CHECK_TRUE(app_get_command()->target_main_angle_deg > 0.0f);
@@ -490,6 +529,8 @@ int main(void)
   test_main_limit_stop();
   test_sub_window_stall();
   test_sub_window_timeout();
+  test_sub_window_unknown_position();
+  test_motor_stall_requires_reset();
   test_sensor_validation();
   test_filters();
   test_manual_frame_parse();
