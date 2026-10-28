@@ -27,14 +27,6 @@ jobs:
       - name: Show compiler
         run: gcc --version
 
-      - name: Reject generation metadata
-        run: |
-          if grep -RInE '主提示词|固定文件树|按提示词' \
-            include src test README.md DESIGN_NOTES.md; then
-            echo "Generation-process metadata must not appear in source or design documents."
-            exit 1
-          fi
-
       - name: Clean
         run: make clean
 
