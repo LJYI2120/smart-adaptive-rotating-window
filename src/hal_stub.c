@@ -17,9 +17,11 @@ static int g_adc_mv[HAL_MOCK_ADC_CHANNELS];
 static float g_pwm_duty[HAL_MOCK_PWM_CHANNELS];
 static uint8_t g_gpio[HAL_MOCK_GPIO_COUNT];
 static int g_encoder_counts;
-static uint32_t g_milliseconds;
+static uint64_t g_monotonic_us;
 static uint32_t g_motor_stop_count;
 static uint32_t g_delay_total_ms;
+static uint32_t g_critical_depth;
+static uint32_t g_critical_enter_count;
 
 /* 将浮点占空比限制到驱动可接受范围，并拦截 NaN/Inf。 */
 static float hal_clamp_duty(float duty)
@@ -81,7 +83,7 @@ uint8_t hal_gpio_read(uint8_t pin)
 /* 对应说明书：3.4.5 单调毫秒时钟 */
 uint32_t hal_get_ms(void)
 {
-  return g_milliseconds;
+  return (uint32_t)(g_monotonic_us / 1000u);
 }
 
 /*
@@ -108,15 +110,38 @@ void hal_motor_stop(void)
  */
 void hal_delay_ms(uint32_t milliseconds)
 {
-  if (milliseconds <= (UINT32_MAX - g_milliseconds)) {
-    g_milliseconds += milliseconds;
-  } else {
-    g_milliseconds = (uint32_t)(milliseconds - (UINT32_MAX - g_milliseconds) - 1u);
-  }
+  g_monotonic_us += (uint64_t)milliseconds * 1000u;
   if (milliseconds <= (UINT32_MAX - g_delay_total_ms)) {
     g_delay_total_ms += milliseconds;
   } else {
     g_delay_total_ms = UINT32_MAX;
+  }
+}
+
+/* 微秒延时只推进主机模拟时钟，用于验证换向死区路径。 */
+void hal_delay_us(uint32_t microseconds)
+{
+  g_monotonic_us += (uint64_t)microseconds;
+}
+
+/*
+ * 主机桩不支持真实中断，用深度计数模拟可嵌套临界区。移植到 MCU 时，
+ * 必须在这两个函数中保存 PRIMASK、恢复原状态，而不是无条件开中断。
+ */
+void hal_critical_enter(void)
+{
+  if (g_critical_depth != UINT32_MAX) {
+    ++g_critical_depth;
+  }
+  if (g_critical_enter_count != UINT32_MAX) {
+    ++g_critical_enter_count;
+  }
+}
+
+void hal_critical_exit(void)
+{
+  if (g_critical_depth > 0u) {
+    --g_critical_depth;
   }
 }
 
@@ -127,9 +152,11 @@ void hal_reset_mock(void)
   memset(g_pwm_duty, 0, sizeof(g_pwm_duty));
   memset(g_gpio, 0, sizeof(g_gpio));
   g_encoder_counts = 0;
-  g_milliseconds = 0u;
+  g_monotonic_us = 0u;
   g_motor_stop_count = 0u;
   g_delay_total_ms = 0u;
+  g_critical_depth = 0u;
+  g_critical_enter_count = 0u;
 }
 
 /* 测试辅助：设置ADC通道的毫伏值，非法毫伏被夹到ADC电源范围内。 */
@@ -162,7 +189,7 @@ void hal_set_mock_gpio(uint8_t pin, uint8_t value)
 /* 测试辅助：直接推进毫秒计数，不模拟忙等时间。 */
 void hal_set_mock_ms(uint32_t milliseconds)
 {
-  g_milliseconds = milliseconds;
+  g_monotonic_us = (uint64_t)milliseconds * 1000u;
 }
 
 /* 以下只读接口用于断言模拟状态，不改变控制逻辑。 */
@@ -194,7 +221,7 @@ uint8_t hal_mock_get_gpio(uint8_t pin)
 
 uint32_t hal_mock_get_ms(void)
 {
-  return g_milliseconds;
+  return hal_get_ms();
 }
 
 uint32_t hal_mock_get_stop_count(void)
@@ -205,4 +232,9 @@ uint32_t hal_mock_get_stop_count(void)
 uint32_t hal_mock_get_delay_total_ms(void)
 {
   return g_delay_total_ms;
+}
+
+uint32_t hal_mock_get_critical_enter_count(void)
+{
+  return g_critical_enter_count;
 }

@@ -35,10 +35,10 @@ static void sub_identify_position(void)
     g_state = SUB_WINDOW_OPEN;
   } else if ((open == 0u) && (closed == 0u)) {
     /*
-     * 两端均未到位时无法得知真实位置。安全策略默认认为窗口关闭，
-     * 需要后续协议先执行一次关闭，避免在未知位置强行打开。
+     * 两端均未到位时窗口可能正停在中间，也可能限位线束失效。不得假定
+     * 已关闭；打开请求会先转换为一次关闭归位，由行程超时保护兜底。
      */
-    g_state = SUB_WINDOW_CLOSED;
+    g_state = SUB_WINDOW_UNKNOWN;
   } else {
     g_state = SUB_WINDOW_FAULT;
     motor_mark_stall();
@@ -76,6 +76,15 @@ void sub_window_open(void)
 {
   if ((g_state == SUB_WINDOW_OPEN) ||
       (g_state == SUB_WINDOW_OPENING)) {
+    return;
+  }
+
+  /*
+   * 未知位置不允许直接向外打开。先执行关闭归位，既缩短机构外伸时间，
+   * 也通过关闭限位或行程超时确认位置。
+   */
+  if (g_state == SUB_WINDOW_UNKNOWN) {
+    sub_window_close();
     return;
   }
 
@@ -186,6 +195,12 @@ uint8_t sub_window_is_moving(void)
     return 1u;
   }
   return 0u;
+}
+
+uint8_t sub_window_position_is_known(void)
+{
+  return ((g_state == SUB_WINDOW_CLOSED) ||
+          (g_state == SUB_WINDOW_OPEN)) ? 1u : 0u;
 }
 
 /*

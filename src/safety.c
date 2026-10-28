@@ -137,8 +137,9 @@ static void safety_update_comm(const env_data_t *env, safety_status_t *safe)
 
 /*
  * 对应说明书：4.7.6 电机堵转粘滞与超时恢复
- * 堵转标志首次出现时记录时刻。达到 SAFE_LOCK_RESET_MS 且当前采样不再
- * 超限后清除，给维护人员留出停机时间，也让无人值守系统可按规范恢复。
+ * 堵转标志首次出现时记录时刻。默认永不自动清除；只有显式启用
+ * MOTOR_STALL_AUTO_CLEAR_ENABLE 后，才允许在停机超时且电流恢复后清除。
+ * 电机静止时电流正常并不能证明机械卡阻消失，因此自动恢复不是默认策略。
  */
 static void safety_update_motor_timeout(safety_status_t *safe)
 {
@@ -156,6 +157,7 @@ static void safety_update_motor_timeout(safety_status_t *safe)
     return;
   }
 
+#if MOTOR_STALL_AUTO_CLEAR_ENABLE
   if ((safety_age_ms(now, g_motor_fault_since_ms) >= SAFE_LOCK_RESET_MS) &&
       (motor_read_current_ma() <= STALL_CURRENT_MA)) {
     motor_clear_stall();
@@ -163,6 +165,13 @@ static void safety_update_motor_timeout(safety_status_t *safe)
     g_motor_fault_seen = 0u;
     g_motor_fault_since_ms = now;
   }
+#else
+  /*
+   * 默认分支不执行自动清除。保留对 now 的读取用于状态诊断计时，
+   * 也避免以后启用该策略时改变故障起始时刻的含义。
+   */
+  (void)now;
+#endif
 }
 
 /*

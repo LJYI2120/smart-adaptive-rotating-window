@@ -4,6 +4,7 @@
  * 对应说明书章节：3.3 软件运行架构
  */
 #include "config.h"
+#include "app.h"
 #include "decision.h"
 #include "filter.h"
 #include "hal.h"
@@ -29,7 +30,6 @@ static manual_cmd_t g_manual_command;
 static safety_status_t g_safety;
 static window_cmd_t g_command;
 static system_state_t g_state;
-static volatile uint32_t g_manual_sequence;
 
 static float g_moving_buffers[APP_ENV_SIGNAL_COUNT][FILTER_MOVING_WINDOW];
 static float g_median_buffers[APP_ENV_SIGNAL_COUNT][FILTER_MEDIAN_WINDOW];
@@ -38,10 +38,6 @@ static status_snapshot_t g_status_history[STATUS_HISTORY_DEPTH];
 static uint32_t g_status_upload_count;
 static uint32_t g_last_status_upload_ms;
 static uint32_t g_timer_tick_count;
-
-/* 命令快照使用序号锁，避免定时器读到主循环更新到一半的结构体。 */
-static volatile uint32_t g_command_sequence;
-static volatile uint32_t g_environment_sequence;
 
 /* 返回指定信号在滤波窗口数组中的索引。 */
 enum {
@@ -237,69 +233,36 @@ static void app_filter_environment(const env_data_t *raw, env_data_t *filtered)
   filtered->valid_mask = raw->valid_mask;
 }
 
-/* 取一份一致的命令快照；最多重试三个周期，失败时使用安全默认值。 */
+/* 在短临界区中复制完整命令，定时器不会看到半更新结构体。 */
 static window_cmd_t app_read_command_snapshot(void)
 {
   window_cmd_t snapshot;
-  uint32_t before;
-  uint32_t after;
-  uint8_t attempts;
 
-  memset(&snapshot, 0, sizeof(snapshot));
-  snapshot.target_main_angle_deg = SAFE_ANGLE;
-  snapshot.safety_lock = 1u;
-
-  for (attempts = 0u; attempts < SNAPSHOT_READ_RETRIES; ++attempts) {
-    before = g_command_sequence;
-    if ((before & 1u) != 0u) {
-      continue;
-    }
-    snapshot = g_command;
-    after = g_command_sequence;
-    if ((before == after) && ((after & 1u) == 0u)) {
-      return snapshot;
-    }
-  }
-
-  memset(&snapshot, 0, sizeof(snapshot));
-  snapshot.target_main_angle_deg = SAFE_ANGLE;
-  snapshot.safety_lock = 1u;
+  hal_critical_enter();
+  snapshot = g_command;
+  hal_critical_exit();
   return snapshot;
 }
 
-/* 主循环写入完整命令后再释放序号，定时器只能看到旧版或新版。 */
+/* 主循环在临界区内提交完整命令，定时器只能看到旧版或新版。 */
 static void app_write_command_snapshot(const window_cmd_t *command)
 {
   if (command == NULL) {
     return;
   }
-  ++g_command_sequence;
+  hal_critical_enter();
   g_command = *command;
-  ++g_command_sequence;
+  hal_critical_exit();
 }
 
-/* 手动命令可能在通信中断中生成，用同样的序号锁与主循环交换快照。 */
+/* 手动命令可能在通信中断中生成，用同一临界区复制完整快照。 */
 static manual_cmd_t app_read_manual_command_snapshot(void)
 {
   manual_cmd_t snapshot;
-  uint32_t before;
-  uint32_t after;
-  uint8_t attempts;
 
-  memset(&snapshot, 0, sizeof(snapshot));
-  for (attempts = 0u; attempts < SNAPSHOT_READ_RETRIES; ++attempts) {
-    before = g_manual_sequence;
-    if ((before & 1u) != 0u) {
-      continue;
-    }
-    snapshot = g_manual_command;
-    after = g_manual_sequence;
-    if ((before == after) && ((after & 1u) == 0u)) {
-      return snapshot;
-    }
-  }
-
-  memset(&snapshot, 0, sizeof(snapshot));
+  hal_critical_enter();
+  snapshot = g_manual_command;
+  hal_critical_exit();
   return snapshot;
 }
 
@@ -311,14 +274,16 @@ static manual_cmd_t app_read_manual_command_snapshot(void)
 void app_timer_tick(void)
 {
   window_cmd_t command_snapshot;
+  env_data_t filtered_snapshot;
   float current_angle;
   float pwm_output;
 
   ++g_timer_tick_count;
   env_sensor_read(&g_env_raw);
-  ++g_environment_sequence;
-  app_filter_environment(&g_env_raw, &g_env_filtered);
-  ++g_environment_sequence;
+  app_filter_environment(&g_env_raw, &filtered_snapshot);
+  hal_critical_enter();
+  g_env_filtered = filtered_snapshot;
+  hal_critical_exit();
 
   command_snapshot = app_read_command_snapshot();
   current_angle = motor_read_main_angle_deg();
@@ -338,35 +303,14 @@ static void app_install_safe_command(void)
   app_write_command_snapshot(&g_command);
 }
 
-/* 取得滤波完成的环境快照，主循环与定时器不直接共享半更新字段。 */
+/* 在短临界区中取得完整的滤波环境快照。 */
 static env_data_t app_read_environment_snapshot(void)
 {
   env_data_t snapshot;
-  uint32_t before;
-  uint32_t after;
-  uint8_t attempts;
 
-  /*
-   * 环境结构体由定时器完整更新。序号为奇数表示写入进行中；读到前后
-   * 相同偶数序号才是稳定快照。重试失败时上交全零无效数据，安全层会
-   * 将其识别为传感器故障，而不是继续使用可能撕裂的值。
-   */
-  memset(&snapshot, 0, sizeof(snapshot));
-  for (attempts = 0u; attempts < SNAPSHOT_READ_RETRIES; ++attempts) {
-    before = g_environment_sequence;
-    if ((before & 1u) != 0u) {
-      continue;
-    }
-    snapshot = g_env_filtered;
-    after = g_environment_sequence;
-    if ((before == after) && ((after & 1u) == 0u)) {
-      return snapshot;
-    }
-  }
-
-  memset(&snapshot, 0, sizeof(snapshot));
-  snapshot.timestamp_ms = hal_get_ms();
-  snapshot.valid_mask = 0u;
+  hal_critical_enter();
+  snapshot = g_env_filtered;
+  hal_critical_exit();
   return snapshot;
 }
 
@@ -387,17 +331,14 @@ void app_init(void)
   g_status_upload_count = 0u;
   g_last_status_upload_ms = hal_get_ms();
   g_timer_tick_count = 0u;
-  g_command_sequence = 0u;
-  g_environment_sequence = 0u;
-  g_manual_sequence = 0u;
 
   sensor_init();
   safety_init(&g_safety);
   motor_init();
   motor_bind_safety_status(&g_safety);
   main_window_init();
-  sub_window_init();
   sub_window_bind_safety_status(&g_safety);
+  sub_window_init();
   state_machine_reset();
   g_state = ST_IDLE;
   app_install_safe_command();
@@ -559,11 +500,11 @@ system_state_t app_get_state(void)
 
 void app_set_manual_command(const manual_cmd_t *manual)
 {
-  ++g_manual_sequence;
+  hal_critical_enter();
   if (manual == NULL) {
     memset(&g_manual_command, 0, sizeof(g_manual_command));
   } else {
     g_manual_command = *manual;
   }
-  ++g_manual_sequence;
+  hal_critical_exit();
 }

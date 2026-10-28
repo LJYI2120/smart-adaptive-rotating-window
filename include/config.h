@@ -127,6 +127,20 @@
 #define PWM_MAX_DUTY              (1.0f)
 #define SUB_MOTOR_DUTY            (0.65f)
 
+/*
+ * 电机换向前必须保持桥臂关断的最小时间。目标板 HAL 应使用硬件定时器
+ * 或驱动芯片死区完成该等待；主机桩仅推进模拟时钟。
+ */
+#define MOTOR_DIRECTION_DEADTIME_US (20u)
+
+/*
+ * 机械堵转默认只能人工复位。某些无人值守部署可显式启用超时恢复，
+ * 系统仍要求停机后电流恢复正常，不能仅凭电机静止判断机械危险解除。
+ */
+#ifndef MOTOR_STALL_AUTO_CLEAR_ENABLE
+#define MOTOR_STALL_AUTO_CLEAR_ENABLE (0u)
+#endif
+
 /* 光照垂直差只在超过其独立阈值时辅助追光状态判断。 */
 #define LIGHT_VERTICAL_FACTOR     (0.75f)
 
@@ -135,7 +149,6 @@
 #define FILTER_MEDIAN_WEIGHT      (0.5f)
 
 /* 共享结构体读取重试次数和手动帧标志。 */
-#define SNAPSHOT_READ_RETRIES     (3u)
 #define MANUAL_CRC_POLYNOMIAL     (0x07u)
 #define MANUAL_FLAG_SUB_OPEN      (0x01u)
 #define MANUAL_FLAG_RESET         (0x02u)

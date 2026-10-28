@@ -13,6 +13,7 @@ static safety_status_t *g_bound_safety;
 static uint8_t g_stall_latched;
 static uint8_t g_main_active;
 static uint8_t g_sub_active;
+static motor_direction_t g_main_direction;
 static motor_direction_t g_sub_direction;
 
 /* 把方向枚举转换为左右方向脚的互补输出。 */
@@ -60,6 +61,20 @@ static float motor_sanitize_duty(float duty)
 }
 
 /*
+ * 仅在运行方向真正反转时等待死区。由停止进入运行不需要额外等待，
+ * 已关断 PWM 后也不会在每个控制周期重复阻塞。
+ */
+static void motor_wait_for_reversal(motor_direction_t previous,
+                                    motor_direction_t next)
+{
+  if ((previous != MOTOR_DIR_STOP) &&
+      (next != MOTOR_DIR_STOP) &&
+      (previous != next)) {
+    hal_delay_us(MOTOR_DIRECTION_DEADTIME_US);
+  }
+}
+
+/*
  * 对应说明书：4.6.1 电机初始化
  * 初始化先关断所有方向与 PWM，再清内部故障，防止上电瞬间机构动作。
  */
@@ -69,6 +84,7 @@ void motor_init(void)
   g_stall_latched = 0u;
   g_main_active = 0u;
   g_sub_active = 0u;
+  g_main_direction = MOTOR_DIR_STOP;
   g_sub_direction = MOTOR_DIR_STOP;
 
   motor_write_main_direction(MOTOR_DIR_STOP);
@@ -144,13 +160,16 @@ void motor_set_main_output(float duty, motor_direction_t direction)
     motor_write_main_direction(MOTOR_DIR_STOP);
     hal_pwm_set(HAL_PWM_MAIN_CHANNEL, 0.0f);
     g_main_active = 0u;
+    g_main_direction = MOTOR_DIR_STOP;
     return;
   }
 
   /* 先撤PWM，再切换方向，给功率桥留出软件侧死区。 */
   hal_pwm_set(HAL_PWM_MAIN_CHANNEL, PWM_MIN_DUTY);
+  motor_wait_for_reversal(g_main_direction, direction);
   motor_write_main_direction(direction);
   hal_pwm_set(HAL_PWM_MAIN_CHANNEL, safe_duty);
+  g_main_direction = direction;
   g_main_active = 1u;
 }
 
@@ -178,6 +197,7 @@ void motor_set_sub_direction(motor_direction_t direction)
 
   /* 换向前先关断副窗PWM，避免半桥上下管瞬时直通。 */
   hal_pwm_set(HAL_PWM_SUB_CHANNEL, PWM_MIN_DUTY);
+  motor_wait_for_reversal(g_sub_direction, direction);
   motor_write_sub_direction(direction);
   /*
    * 0.65 是执行器机械特性参数而非环境阈值；为避免业务配置表混入
@@ -197,6 +217,7 @@ void motor_stop_all(void)
   motor_write_sub_direction(MOTOR_DIR_STOP);
   hal_pwm_set(HAL_PWM_MAIN_CHANNEL, 0.0f);
   hal_pwm_set(HAL_PWM_SUB_CHANNEL, 0.0f);
+  g_main_direction = MOTOR_DIR_STOP;
   g_sub_direction = MOTOR_DIR_STOP;
   g_main_active = 0u;
   g_sub_active = 0u;

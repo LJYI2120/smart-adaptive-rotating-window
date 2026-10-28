@@ -17,6 +17,7 @@ typedef enum {
   SUB_WINDOW_OPENING,
   SUB_WINDOW_OPEN,
   SUB_WINDOW_CLOSING,
+  SUB_WINDOW_UNKNOWN,
   SUB_WINDOW_FAULT
 } sub_window_state_t;
 
@@ -38,6 +39,7 @@ void sub_window_bind_safety_status(safety_status_t *safe);
 sub_window_state_t sub_window_get_state(void);
 uint8_t sub_window_is_open(void);
 uint8_t sub_window_is_moving(void);
+uint8_t sub_window_position_is_known(void);
 
 /* 人工复位后清除执行故障，并重新读取限位。 */
 void sub_window_reset(void);

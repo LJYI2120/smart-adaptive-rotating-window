@@ -24,6 +24,14 @@ uint8_t hal_gpio_read(uint8_t pin);
 uint32_t hal_get_ms(void);
 void hal_motor_stop(void);
 void hal_delay_ms(uint32_t ms);
+void hal_delay_us(uint32_t microseconds);
+
+/*
+ * 关闭/恢复可抢占当前控制上下文的本地中断。真实移植必须保存原中断状态
+ * 并支持嵌套；临界区仅用于复制共享结构体或更新短状态，不得执行延时。
+ */
+void hal_critical_enter(void);
+void hal_critical_exit(void);
 
 /*
  * 主机模拟器扩展接口。这些函数只由 hal_stub.c 实现，产品固件若连接真实
@@ -42,6 +50,7 @@ uint8_t hal_mock_get_gpio(uint8_t pin);
 uint32_t hal_mock_get_ms(void);
 uint32_t hal_mock_get_stop_count(void);
 uint32_t hal_mock_get_delay_total_ms(void);
+uint32_t hal_mock_get_critical_enter_count(void);
 
 #ifdef __cplusplus
 }

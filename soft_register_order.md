@@ -56,7 +56,7 @@ ADC/HAL
 | 3 | `include/motor.h` + `src/motor.c` | 方向、PWM、电流、堵转保护 | 执行器封装和故障锁存 | 6 |
 | 4 | `src/sub_window.c` | `sub_window_init` 至 `sub_window_service` | 非阻塞开关、限时、电流堵转 | 5 |
 | 5 | `src/safety.c` | `safety_override` 及风、雨、通信检查 | 安全覆盖与恢复 | 6 |
-| 6 | `src/app.c` | `app_run`、复位、`status_upload` | 主循环、快照锁、状态上传 | 5 |
+| 6 | `src/app.c` | `app_run`、复位、`status_upload` | 主循环、临界区快照、状态上传 | 5 |
 | 7 | `test/test_host.c` | 追光、锁定、雨滴、手动、限位、堵转测试 | 可执行验证证据 | 2 |
 
 后 30 页的阅读主线：
