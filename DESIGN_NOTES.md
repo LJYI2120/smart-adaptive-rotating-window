@@ -306,9 +306,9 @@ test_host: 68 checks, 0 failures
 
 ## 10. 自检清单
 
-- [x] 主提示词列出的 26 个固定文件全部存在，并新增 `include/app.h` 统一应用接口。
+- [x] 项目固定模块全部存在，并新增 `include/app.h` 统一应用接口。
 - [x] `system_state_t`、`env_data_t`、`window_cmd_t`、`safety_status_t`、`manual_cmd_t` 名称和字段稳定。
-- [x] 关键函数签名与主提示词一致。
+- [x] 关键函数签名与设计文档和数据模型一致。
 - [x] 每个声明函数均有完整实现。
 - [x] 无 `TODO`、`FIXME`、空函数体或省略号占位。
 - [x] 不使用 `malloc`、`free`、递归和第三方运行库。
