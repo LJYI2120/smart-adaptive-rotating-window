@@ -12,7 +12,7 @@
 | 软件名称 | 智能环境自适应旋转窗控制系统 |
 | 软著版本 | V1.0 |
 | PC 原型版本 | 0.2.0 |
-| 当前发行版 | [v1.1.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.1.0) |
+| 当前发行版 | [v1.2.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.2.0) |
 | 实现语言 | Python 3、C++17、C99 |
 | 运行平台 | Windows PC + ESP32 |
 
@@ -26,6 +26,15 @@
 ![PC control application](docs/images/pc_app.png)
 
 ## 版本更新
+
+### v1.2.0
+
+- 界面增加乌鲁木齐坐标预设和结构校核页。
+- 支持输入 90.5 / 247 / 320 mm 关键尺寸和 2～3 kg 整体质量。
+- 增加直驱、减速驱动、质心力矩与安全余量估算。
+- 增加 TSL2561 强日照量程设置和 AS5600 可选反馈说明。
+- 增加乌鲁木齐气候条件下的完整采购与户外防护清单。
+- [下载 Windows 程序 v1.2.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/download/v1.2.0/SmartWindowController-v1.2.0-windows-x64.zip)。
 
 ### v1.1.0
 
