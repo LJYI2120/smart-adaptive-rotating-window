@@ -11,7 +11,7 @@
 |---|---|
 | 软件名称 | 智能环境自适应旋转窗控制系统 |
 | 软著版本 | V1.0 |
-| PC 原型版本 | 0.1.0 |
+| PC 原型版本 | 0.2.0 |
 | 当前发行版 | [v1.1.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.1.0) |
 | 实现语言 | Python 3、C++17、C99 |
 | 运行平台 | Windows PC + ESP32 |
@@ -46,6 +46,7 @@
 ## 主要特性
 
 - Windows 桌面应用支持串口扫描、自动连接、一键启动和停止。
+- 内置乌鲁木齐坐标预设、结构尺寸录入和 2～3 kg 窗扇力矩校核。
 - PC 端计算太阳方位、归一化光强 PID 修正、模式目标和运动限速。
 - ESP32 直接读取 TCA9548A 后的四路 TSL2561，并回传实时光强。
 - 系统固件使用 CRC16 帧、设备握手、命令确认和通信看门狗。
@@ -240,6 +241,7 @@ test_host: 68 checks, 0 failures
 - [`docs/WIRING.md`](docs/WIRING.md)：接线、电源与安全输入。
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md)：PC 软件操作和故障处理。
 - [`docs/CONTEST_PLAN.md`](docs/CONTEST_PLAN.md)：竞赛选型、预算和测试计划。
+- [`docs/PURCHASE_LIST_URUMQI.md`](docs/PURCHASE_LIST_URUMQI.md)：按 320 mm、2～3 kg 和乌鲁木齐气候整理的采购清单。
 - [`docs/SOFTWARE_COPYRIGHT.md`](docs/SOFTWARE_COPYRIGHT.md)：PC 与固件软著材料映射。
 - [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：桌面端依赖和许可证说明。
 - [GitHub Releases](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases)：固定版本源码快照。

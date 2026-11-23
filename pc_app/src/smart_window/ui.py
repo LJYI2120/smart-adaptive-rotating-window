@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +44,7 @@ from .protocol import (
 )
 from .serial_link import SerialLink, available_ports, preferred_port
 from .solar import calculate_solar_position
+from .structure import StructureInputs, evaluate_structure
 
 MODE_LABELS = (
     ("自动天文追光", OperatingMode.AUTO),
@@ -85,7 +87,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("智能环境自适应旋转窗控制系统")
         self.setMinimumSize(1200, 800)
-        self.resize(1440, 900)
+        self.resize(1440, 960)
 
         self._build_ui()
         self._bind_config()
@@ -185,7 +187,12 @@ class MainWindow(QMainWindow):
         panel.setMinimumWidth(370)
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
+        tabs = QTabWidget()
+        self.control_tabs = tabs
 
+        run_tab = QWidget()
+        run_layout = QVBoxLayout(run_tab)
+        run_layout.setContentsMargins(6, 8, 6, 8)
         mode_group = QGroupBox("运行控制")
         mode_layout = QVBoxLayout(mode_group)
         self.mode_combo = QComboBox()
@@ -206,7 +213,7 @@ class MainWindow(QMainWindow):
 
         self.clear_fault_button = QPushButton("清除故障")
         mode_layout.addWidget(self.clear_fault_button)
-        layout.addWidget(mode_group)
+        run_layout.addWidget(mode_group)
 
         location_group = QGroupBox("太阳位置参数")
         form = QFormLayout(location_group)
@@ -219,7 +226,9 @@ class MainWindow(QMainWindow):
         form.addRow("经度 (°)", self.longitude_spin)
         form.addRow("UTC 时区", self.timezone_spin)
         form.addRow("窗口朝向 (°)", self.window_azimuth_spin)
-        layout.addWidget(location_group)
+        self.urumqi_button = QPushButton("使用乌鲁木齐坐标")
+        form.addRow(self.urumqi_button)
+        run_layout.addWidget(location_group)
 
         target_group = QGroupBox("目标与增益")
         target_form = QFormLayout(target_group)
@@ -234,12 +243,78 @@ class MainWindow(QMainWindow):
         target_form.addRow("光差 P 增益", self.light_gain_spin)
         target_form.addRow("角度死区 (°)", self.deadband_spin)
         target_form.addRow("最大速度 (°/s)", self.slew_spin)
-        layout.addWidget(target_group)
+
+        parameter_tab = QWidget()
+        parameter_layout = QVBoxLayout(parameter_tab)
+        parameter_layout.setContentsMargins(6, 8, 6, 8)
+        parameter_layout.addWidget(target_group)
+        parameter_layout.addStretch(1)
 
         self.auto_heartbeat_check = QCheckBox("保持通信心跳")
         self.auto_heartbeat_check.setChecked(True)
-        layout.addWidget(self.auto_heartbeat_check)
-        layout.addStretch(1)
+        run_layout.addWidget(self.auto_heartbeat_check)
+        run_layout.addStretch(1)
+        tabs.addTab(run_tab, "运行设置")
+        tabs.addTab(parameter_tab, "目标参数")
+
+        structure_tab = QWidget()
+        structure_layout = QVBoxLayout(structure_tab)
+        structure_layout.setContentsMargins(6, 8, 6, 8)
+
+        dimensions_group = QGroupBox("模型关键尺寸（mm）")
+        dimensions_form = QFormLayout(dimensions_group)
+        dimensions_form.setVerticalSpacing(7)
+        self.inner_opening_spin = self._double_spin(20.0, 2000.0, 1)
+        self.inner_frame_spin = self._double_spin(20.0, 2000.0, 1)
+        self.outer_frame_spin = self._double_spin(20.0, 2000.0, 1)
+        dimensions_form.addRow("内框内边", self.inner_opening_spin)
+        dimensions_form.addRow("内框外边", self.inner_frame_spin)
+        dimensions_form.addRow("外框外边", self.outer_frame_spin)
+        structure_layout.addWidget(dimensions_group)
+
+        drive_group = QGroupBox("质量与驱动校核")
+        drive_form = QFormLayout(drive_group)
+        drive_form.setVerticalSpacing(7)
+        self.mass_spin = self._double_spin(0.1, 20.0, 2)
+        self.center_offset_spin = self._double_spin(0.1, 200.0, 1)
+        self.gear_ratio_spin = self._double_spin(1.0, 50.0, 1)
+        self.motor_torque_spin = self._double_spin(0.05, 10.0, 2)
+        self.motor_torque_spin.setSingleStep(0.05)
+        drive_form.addRow("整体质量 (kg)", self.mass_spin)
+        drive_form.addRow("质心偏心 (mm)", self.center_offset_spin)
+        drive_form.addRow("减速比", self.gear_ratio_spin)
+        drive_form.addRow("电机保持力矩 (N·m)", self.motor_torque_spin)
+        structure_layout.addWidget(drive_group)
+
+        estimate_group = QGroupBox("设计估算")
+        estimate_layout = QVBoxLayout(estimate_group)
+        self.structure_margin_label = QLabel("余量 --")
+        self.structure_margin_label.setObjectName("structureMargin")
+        self.structure_detail_label = QLabel()
+        self.structure_detail_label.setWordWrap(True)
+        self.structure_advice_label = QLabel()
+        self.structure_advice_label.setWordWrap(True)
+        self.structure_advice_label.setObjectName("secondaryText")
+        estimate_layout.addWidget(self.structure_margin_label)
+        estimate_layout.addWidget(self.structure_detail_label)
+        estimate_layout.addWidget(self.structure_advice_label)
+        structure_layout.addWidget(estimate_group)
+
+        climate_group = QGroupBox("乌鲁木齐环境提示")
+        climate_layout = QVBoxLayout(climate_group)
+        climate = QLabel(
+            "温带大陆性干旱气候：昼夜温差和太阳辐照较强，春季多风、"
+            "冬季低温且空气干燥。模型需考虑风载、低温线材、密封防尘和"
+            "转轴质心平衡。"
+        )
+        climate.setWordWrap(True)
+        climate.setObjectName("secondaryText")
+        climate_layout.addWidget(climate)
+        structure_layout.addWidget(climate_group)
+        structure_layout.addStretch(1)
+        tabs.addTab(structure_tab, "结构校核")
+
+        layout.addWidget(tabs, 1)
         return panel
 
     def _build_plot_panel(self) -> QWidget:
@@ -306,9 +381,17 @@ class MainWindow(QMainWindow):
         self.deadband_spin.setValue(self.config.deadband_deg)
         self.slew_spin.setValue(self.config.max_slew_deg_per_s)
         self.manual_target_spin.setValue(self.config.manual_target_deg)
+        self.inner_opening_spin.setValue(self.config.inner_opening_mm)
+        self.inner_frame_spin.setValue(self.config.inner_frame_outer_mm)
+        self.outer_frame_spin.setValue(self.config.outer_frame_mm)
+        self.mass_spin.setValue(self.config.window_mass_kg)
+        self.center_offset_spin.setValue(self.config.center_offset_mm)
+        self.gear_ratio_spin.setValue(self.config.gear_ratio)
+        self.motor_torque_spin.setValue(self.config.motor_torque_nm)
         index = self.mode_combo.findData(int(self.config.mode))
         if index >= 0:
             self.mode_combo.setCurrentIndex(index)
+        self._update_structure_estimate()
 
     def _connect_signals(self) -> None:
         self.refresh_button.clicked.connect(self.refresh_ports)
@@ -320,6 +403,14 @@ class MainWindow(QMainWindow):
         self.clear_fault_button.clicked.connect(self.clear_fault)
         self.manual_target_spin.valueChanged.connect(self._manual_target_changed)
         self.mode_combo.currentIndexChanged.connect(self._mode_changed)
+        self.urumqi_button.clicked.connect(self._apply_urumqi_preset)
+        for spin in (
+            self.mass_spin,
+            self.center_offset_spin,
+            self.gear_ratio_spin,
+            self.motor_torque_spin,
+        ):
+            spin.valueChanged.connect(self._update_structure_estimate)
 
     def _create_timers(self) -> None:
         self.poll_timer = QTimer(self)
@@ -420,10 +511,48 @@ class MainWindow(QMainWindow):
         self.config.deadband_deg = self.deadband_spin.value()
         self.config.max_slew_deg_per_s = self.slew_spin.value()
         self.config.manual_target_deg = self.manual_target_spin.value()
+        self.config.inner_opening_mm = self.inner_opening_spin.value()
+        self.config.inner_frame_outer_mm = self.inner_frame_spin.value()
+        self.config.outer_frame_mm = self.outer_frame_spin.value()
+        self.config.window_mass_kg = self.mass_spin.value()
+        self.config.center_offset_mm = self.center_offset_spin.value()
+        self.config.gear_ratio = self.gear_ratio_spin.value()
+        self.config.motor_torque_nm = self.motor_torque_spin.value()
         self.config.mode = OperatingMode(self.mode_combo.currentData())
         self.config.validate()
         self.controller.settings = self._controller_settings()
         return self.config
+
+    def _apply_urumqi_preset(self) -> None:
+        self.latitude_spin.setValue(43.8256)
+        self.longitude_spin.setValue(87.6168)
+        self.timezone_spin.setValue(8.0)
+        self._log("已应用乌鲁木齐坐标：43.8256°N，87.6168°E。")
+
+    def _update_structure_estimate(self) -> None:
+        try:
+            result = evaluate_structure(
+                StructureInputs(
+                    window_mass_kg=self.mass_spin.value(),
+                    center_offset_mm=self.center_offset_spin.value(),
+                    gear_ratio=self.gear_ratio_spin.value(),
+                    motor_torque_nm=self.motor_torque_spin.value(),
+                )
+            )
+        except ValueError:
+            self.structure_margin_label.setText("余量：参数无效")
+            return
+
+        self.structure_margin_label.setText(
+            f"减速后安全余量 {result.safety_margin:.2f}×"
+        )
+        self.structure_detail_label.setText(
+            f"重力力矩 {result.gravity_torque_nm:.3f} N·m\n"
+            f"考虑摩擦需求 {result.required_torque_nm:.3f} N·m\n"
+            f"减速后可用 {result.available_torque_nm:.3f} N·m\n"
+            f"直驱余量 {result.direct_drive_margin:.2f}×"
+        )
+        self.structure_advice_label.setText(result.recommendation)
 
     def send_heartbeat(self) -> None:
         if self.serial_link.connected and self.auto_heartbeat_check.isChecked():
@@ -739,6 +868,28 @@ def apply_theme(app: QApplication) -> None:
         QSplitter::handle {
             background: #1E293B;
             width: 2px;
+        }
+        QTabWidget::pane {
+            border: 1px solid #263247;
+            border-radius: 8px;
+            background: #0B1120;
+        }
+        QTabBar::tab {
+            background: #111827;
+            color: #94A3B8;
+            border: 1px solid #263247;
+            padding: 7px 18px;
+            margin-right: 3px;
+        }
+        QTabBar::tab:selected {
+            background: #1D4ED8;
+            color: #FFFFFF;
+            border-color: #3B82F6;
+        }
+        QLabel#structureMargin {
+            color: #6EE7B7;
+            font-size: 16px;
+            font-weight: 700;
         }
         """
     )

@@ -14,8 +14,8 @@ from .protocol import OperatingMode
 class AppConfig:
     port: str = ""
     baud_rate: int = 115200
-    latitude_deg: float = 30.5728
-    longitude_deg: float = 104.0668
+    latitude_deg: float = 43.8256
+    longitude_deg: float = 87.6168
     utc_offset_hours: float = 8.0
     window_azimuth_deg: float = 180.0
     cooling_target_deg: float = 90.0
@@ -28,6 +28,13 @@ class AppConfig:
     max_slew_deg_per_s: float = 12.0
     manual_target_deg: float = 0.0
     mode: OperatingMode = OperatingMode.AUTO
+    inner_opening_mm: float = 90.5
+    inner_frame_outer_mm: float = 247.0
+    outer_frame_mm: float = 320.0
+    window_mass_kg: float = 2.5
+    center_offset_mm: float = 10.0
+    gear_ratio: float = 5.0
+    motor_torque_nm: float = 0.4
 
     def validate(self) -> None:
         if self.baud_rate <= 0:
@@ -40,6 +47,22 @@ class AppConfig:
             raise ValueError("invalid UTC offset")
         if not -90.0 <= self.manual_target_deg <= 90.0:
             raise ValueError("invalid manual target")
+        if min(
+            self.inner_opening_mm,
+            self.inner_frame_outer_mm,
+            self.outer_frame_mm,
+            self.window_mass_kg,
+            self.center_offset_mm,
+            self.gear_ratio,
+            self.motor_torque_nm,
+        ) <= 0.0:
+            raise ValueError("structural values must be positive")
+        if not (
+            self.inner_opening_mm
+            < self.inner_frame_outer_mm
+            < self.outer_frame_mm
+        ):
+            raise ValueError("frame dimensions must increase outward")
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

@@ -24,7 +24,7 @@ def main() -> int:
             QFontDatabase.addApplicationFont(str(font_path))
     apply_theme(app)
     window = MainWindow(AppConfig(port="COM7"))
-    window.resize(1440, 900)
+    window.resize(1440, 960)
     window.show()
 
     for index in range(48):
@@ -61,7 +61,13 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     if not window.grab().save(str(output), "PNG"):
         raise RuntimeError(f"failed to save screenshot: {output}")
+    window.control_tabs.setCurrentIndex(2)
+    app.processEvents()
+    structure_output = output.with_name("pc_app_structure.png")
+    if not window.grab().save(str(structure_output), "PNG"):
+        raise RuntimeError(f"failed to save screenshot: {structure_output}")
     print(output)
+    print(structure_output)
     window.close()
     return 0
 

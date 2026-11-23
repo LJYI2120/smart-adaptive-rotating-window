@@ -43,7 +43,7 @@ constexpr uint8_t kStallDiagnosticActiveLevel = HIGH;
 
 constexpr char kFrameMagic[] = "SWC1";
 constexpr uint8_t kFirmwareMajor = 0u;
-constexpr uint8_t kFirmwareMinor = 1u;
+constexpr uint8_t kFirmwareMinor = 2u;
 constexpr uint8_t kFirmwarePatch = 0u;
 
 }  // namespace board
