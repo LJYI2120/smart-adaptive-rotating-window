@@ -6,7 +6,6 @@ import math
 import sys
 from pathlib import Path
 
-from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from smart_window.app_config import AppConfig
@@ -16,12 +15,6 @@ from smart_window.ui import MainWindow, apply_theme
 
 def main() -> int:
     app = QApplication(sys.argv)
-    for font_path in (
-        Path("C:/Windows/Fonts/msyh.ttc"),
-        Path("C:/Windows/Fonts/NotoSansSC-VF.ttf"),
-    ):
-        if font_path.exists():
-            QFontDatabase.addApplicationFont(str(font_path))
     apply_theme(app)
     window = MainWindow(AppConfig(port="COM7"))
     window.resize(1440, 960)
