@@ -2,6 +2,17 @@
 
 ## 1. Corrected hardware budget
 
+The current prototype has a `320 mm` outer frame, a `247 mm` inner-frame
+outer edge and a `90.5 mm` inner opening edge. The complete moving assembly is
+estimated at `2～3 kg`. The opposite rectangular dimension and measured centre
+of gravity must still be supplied before final cutting or motor selection.
+
+For this mass and frame size, a direct NEMA17 without reduction has below
+`1.2×` holding-margin when the residual centre offset is about `10 mm`.
+Use a self-locking 5:1 worm/planetary drive, or mechanically balance the window
+and verify the actual load. The detailed calculation and purchase list are in
+[`PURCHASE_LIST_URUMQI.md`](PURCHASE_LIST_URUMQI.md).
+
 | Category | Cost |
 |---|---:|
 | Electrical control and communications | 71 CNY |

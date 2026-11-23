@@ -2,6 +2,8 @@
 
 ![PC application](images/pc_app.png)
 
+![Structural design check](images/pc_app_structure.png)
+
 ## 1. Start
 
 1. Connect the ESP32 with a USB data cable, not a charge-only cable.
@@ -21,6 +23,8 @@ Set:
 - Latitude and longitude.
 - UTC offset, for example `8` for China Standard Time.
 - Window outward normal azimuth, where north is `0°` and east is `90°`.
+
+The `使用乌鲁木齐坐标` button restores `43.8256°N`, `87.6168°E` and UTC+8.
 
 The application calculates solar elevation and azimuth locally. When the sun
 is below the horizon, the solar target falls back to the stow angle.
@@ -64,3 +68,23 @@ the emergency stop accessible during every test.
 The four curves show relative light intensity. The average is an uncalibrated
 operating indicator, not a photometric measurement. The status area shows the
 firmware status bits translated into operator-facing labels.
+
+## 7. Structural check
+
+Open the `结构校核` tab and enter the three known edge lengths, the complete
+moving mass and the measured centre offset from the shaft:
+
+```text
+inner opening edge: 90.5 mm
+inner-frame outer edge: 247 mm
+outer-frame outer edge: 320 mm
+moving mass: 2.5 kg by default
+```
+
+The calculator multiplies gravity torque by a `1.25` friction allowance and
+applies motor torque, gear ratio and `0.85` transmission efficiency. It warns
+when the direct-drive or geared margin is too low.
+
+The opposite side of the rectangular frame and the measured centre of gravity
+are still required before final machining. Keep the centre of gravity on the
+rotation shaft and use a self-locking 5:1 reduction for the 2～3 kg model.

@@ -10,7 +10,11 @@ constexpr uint8_t kRegisterControl = 0x00u;
 constexpr uint8_t kRegisterTiming = 0x01u;
 constexpr uint8_t kRegisterData0Low = 0x0Cu;
 constexpr uint8_t kControlPowerOn = 0x03u;
-constexpr uint8_t kTimingGain16x101ms = 0x11u;
+/*
+ * Urumqi receives strong direct solar radiation. Use 1x gain to preserve
+ * dynamic range instead of saturating the visible channel at 16x.
+ */
+constexpr uint8_t kTimingGain1x101ms = 0x01u;
 constexpr uint32_t kIntegrationReadyMs = 130u;
 
 }  // namespace
@@ -76,7 +80,7 @@ bool SensorHub::begin() {
                       kControlPowerOn) &&
         writeRegister(board::kTsl2561Address,
                       kRegisterTiming,
-                      kTimingGain16x101ms);
+                      kTimingGain1x101ms);
     any = available_[index] || any;
   }
   return any;
@@ -92,7 +96,7 @@ bool SensorHub::startMeasurement(uint32_t now_ms) {
           selectChannel(board::kLightSensorChannels[index]) &&
           writeRegister(board::kTsl2561Address,
                         kRegisterTiming,
-                        kTimingGain16x101ms);
+                        kTimingGain1x101ms);
     }
   }
   measurement_started_ms_ = now_ms;

@@ -11,8 +11,8 @@
 |---|---|
 | 软件名称 | 智能环境自适应旋转窗控制系统 |
 | 软著版本 | V1.0 |
-| PC 原型版本 | 0.1.0 |
-| 当前发行版 | [v1.1.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.1.0) |
+| PC 原型版本 | 0.2.0 |
+| 当前发行版 | [v1.2.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.2.0) |
 | 实现语言 | Python 3、C++17、C99 |
 | 运行平台 | Windows PC + ESP32 |
 
@@ -26,6 +26,15 @@
 ![PC control application](docs/images/pc_app.png)
 
 ## 版本更新
+
+### v1.2.0
+
+- 界面增加乌鲁木齐坐标预设和结构校核页。
+- 支持输入 90.5 / 247 / 320 mm 关键尺寸和 2～3 kg 整体质量。
+- 增加直驱、减速驱动、质心力矩与安全余量估算。
+- 增加 TSL2561 强日照量程设置和 AS5600 可选反馈说明。
+- 增加乌鲁木齐气候条件下的完整采购与户外防护清单。
+- [下载 Windows 程序 v1.2.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/download/v1.2.0/SmartWindowController-v1.2.0-windows-x64.zip)。
 
 ### v1.1.0
 
@@ -46,6 +55,7 @@
 ## 主要特性
 
 - Windows 桌面应用支持串口扫描、自动连接、一键启动和停止。
+- 内置乌鲁木齐坐标预设、结构尺寸录入和 2～3 kg 窗扇力矩校核。
 - PC 端计算太阳方位、归一化光强 PID 修正、模式目标和运动限速。
 - ESP32 直接读取 TCA9548A 后的四路 TSL2561，并回传实时光强。
 - 系统固件使用 CRC16 帧、设备握手、命令确认和通信看门狗。
@@ -240,6 +250,7 @@ test_host: 68 checks, 0 failures
 - [`docs/WIRING.md`](docs/WIRING.md)：接线、电源与安全输入。
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md)：PC 软件操作和故障处理。
 - [`docs/CONTEST_PLAN.md`](docs/CONTEST_PLAN.md)：竞赛选型、预算和测试计划。
+- [`docs/PURCHASE_LIST_URUMQI.md`](docs/PURCHASE_LIST_URUMQI.md)：按 320 mm、2～3 kg 和乌鲁木齐气候整理的采购清单。
 - [`docs/SOFTWARE_COPYRIGHT.md`](docs/SOFTWARE_COPYRIGHT.md)：PC 与固件软著材料映射。
 - [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：桌面端依赖和许可证说明。
 - [GitHub Releases](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases)：固定版本源码快照。

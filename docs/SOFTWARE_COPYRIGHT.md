@@ -23,6 +23,7 @@ generate the PDF and executable. Do not mix files from different tags.
 | 2. Hardware composition | `docs/WIRING.md` |
 | 3. Installation and connection | `docs/OPERATIONS.md` |
 | 4. Main interface | `docs/images/pc_app.png` |
+| 4.1 Structural design check | `docs/images/pc_app_structure.png` |
 | 5. Serial communication | `protocol/PROTOCOL.md` |
 | 6. Solar tracking | `pc_app/src/smart_window/solar.py` |
 | 7. Light PID | `pc_app/src/smart_window/controller.py` |
