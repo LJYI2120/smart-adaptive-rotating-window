@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections import deque
 from datetime import datetime
+from pathlib import Path
 from typing import Deque
 
 import pyqtgraph as pg
@@ -333,16 +334,24 @@ class MainWindow(QMainWindow):
         layout.addLayout(title_row)
 
         self.plot_widget = pg.PlotWidget(axisItems={"bottom": pg.DateAxisItem()})
-        self.plot_widget.setBackground("#111827")
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.2)
+        self.plot_widget.setBackground("#FFFFFF")
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.16)
         self.plot_widget.setLabel("left", "相对光强")
         self.plot_widget.setLabel("bottom", "时间")
-        self.plot_widget.addLegend(offset=(12, 10))
+        for axis_name in ("left", "bottom"):
+            axis = self.plot_widget.getAxis(axis_name)
+            axis.setPen(pg.mkPen("#536577"))
+            axis.setTextPen(pg.mkPen("#34495E"))
+        self.plot_widget.addLegend(
+            offset=(12, 10),
+            labelTextSize="10pt",
+            labelTextColor="#34495E",
+        )
         self.curves = {
-            "左": self.plot_widget.plot(pen=pg.mkPen("#38BDF8", width=2), name="左"),
-            "右": self.plot_widget.plot(pen=pg.mkPen("#FBBF24", width=2), name="右"),
-            "上": self.plot_widget.plot(pen=pg.mkPen("#34D399", width=2), name="上"),
-            "下": self.plot_widget.plot(pen=pg.mkPen("#F472B6", width=2), name="下"),
+            "左": self.plot_widget.plot(pen=pg.mkPen("#1D5F91", width=2), name="左"),
+            "右": self.plot_widget.plot(pen=pg.mkPen("#B8862D", width=2), name="右"),
+            "上": self.plot_widget.plot(pen=pg.mkPen("#2F7D6D", width=2), name="上"),
+            "下": self.plot_widget.plot(pen=pg.mkPen("#A34A5A", width=2), name="下"),
         }
         layout.addWidget(self.plot_widget, 1)
         return panel
@@ -767,127 +776,158 @@ class MainWindow(QMainWindow):
 
 def apply_theme(app: QApplication) -> None:
     app.setStyle("Fusion")
+    font_dir = Path("C:/Windows/Fonts")
+    for font_name in ("simfang.ttf", "simhei.ttf", "simsun.ttc", "STZHONGS.TTF"):
+        font_path = font_dir / font_name
+        if font_path.exists():
+            QFontDatabase.addApplicationFont(str(font_path))
+
     families = set(QFontDatabase.families())
-    preferred_fonts = (
-        "Microsoft YaHei UI",
-        "Microsoft YaHei",
+    preferred_body_fonts = (
+        "FangSong",
+        "仿宋",
+        "FangSong_GB2312",
+        "仿宋_GB2312",
+        "STFangsong",
         "Noto Sans SC",
-        "Noto Sans CJK SC",
-        "Source Han Sans SC",
-        "WenQuanYi Micro Hei",
+        "Microsoft YaHei UI",
     )
     font_family = next(
-        (family for family in preferred_fonts if family in families),
+        (family for family in preferred_body_fonts if family in families),
         app.font().family(),
     )
-    app.setFont(QFont(font_family, 10))
+    app.setFont(QFont(font_family, 11))
     app.setStyleSheet(
         """
         QMainWindow, QWidget {
-            background: #0B1120;
-            color: #E5E7EB;
+            background: #F2F5F7;
+            color: #1D2A36;
+            font-family: "FangSong", "仿宋", "Noto Sans SC";
+            font-size: 11pt;
         }
         QGroupBox {
-            border: 1px solid #263247;
-            border-radius: 10px;
-            margin-top: 12px;
-            padding-top: 14px;
+            background: #FFFFFF;
+            border: 1px solid #D7E0E7;
+            border-radius: 12px;
+            margin-top: 14px;
+            padding-top: 16px;
+            font-family: "SimHei", "黑体";
             font-weight: 600;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 6px;
-            color: #93C5FD;
+            left: 14px;
+            padding: 0 7px;
+            color: #264E70;
+            font-family: "SimHei", "黑体";
         }
         QPushButton {
-            background: #1E293B;
-            border: 1px solid #334155;
-            border-radius: 7px;
-            padding: 8px 14px;
+            background: #F8FAFC;
+            border: 1px solid #BECBD5;
+            border-radius: 8px;
+            padding: 8px 15px;
+            color: #243746;
         }
         QPushButton:hover {
-            background: #263449;
-            border-color: #60A5FA;
+            background: #EDF3F7;
+            border-color: #6E94AF;
         }
         QPushButton#primaryButton {
-            background: #2563EB;
-            border-color: #3B82F6;
+            background: #245B82;
+            border-color: #245B82;
+            color: #FFFFFF;
             font-weight: 600;
         }
         QPushButton#primaryButton:hover {
-            background: #1D4ED8;
+            background: #1B4B6E;
         }
         QPushButton#dangerButton {
-            background: #991B1B;
-            border-color: #EF4444;
+            background: #B33A3A;
+            border-color: #B33A3A;
+            color: #FFFFFF;
             font-weight: 700;
         }
+        QPushButton#dangerButton:hover {
+            background: #942F2F;
+        }
         QComboBox, QDoubleSpinBox, QPlainTextEdit {
-            background: #111827;
-            border: 1px solid #334155;
-            border-radius: 6px;
+            background: #FFFFFF;
+            border: 1px solid #C8D4DD;
+            border-radius: 7px;
             padding: 6px;
-            selection-background-color: #2563EB;
+            color: #1D2A36;
+            selection-background-color: #245B82;
         }
         QComboBox, QDoubleSpinBox {
             min-height: 24px;
         }
+        QComboBox::drop-down {
+            border: none;
+            width: 24px;
+        }
         QLabel#windowTitle {
-            font-size: 24px;
+            font-family: "STZhongsong", "SimSun", "宋体";
+            font-size: 25px;
             font-weight: 700;
-            color: #F8FAFC;
+            color: #173B57;
         }
         QLabel#subtitle, QLabel#secondaryText, QLabel#metricTitle {
-            color: #94A3B8;
+            color: #647785;
         }
         QLabel#sectionTitle {
+            font-family: "SimHei", "黑体";
             font-size: 16px;
             font-weight: 600;
+            color: #24465F;
         }
         QLabel#connectionBadge {
-            background: #451A1A;
-            color: #FCA5A5;
+            background: #FBEAEA;
+            color: #A33A3A;
+            border: 1px solid #E8C6C6;
             border-radius: 12px;
             padding: 5px 12px;
         }
         QLabel#connectionBadge[connected="true"] {
-            background: #064E3B;
-            color: #6EE7B7;
+            background: #E7F4EF;
+            color: #246B59;
+            border-color: #BFDCCE;
         }
         QFrame#metricCard {
-            background: #111827;
-            border: 1px solid #263247;
-            border-radius: 10px;
+            background: #FFFFFF;
+            border: 1px solid #D7E0E7;
+            border-radius: 12px;
         }
         QLabel#metricValue {
+            font-family: "SimHei", "黑体";
             font-size: 21px;
             font-weight: 700;
-            color: #F8FAFC;
+            color: #173B57;
         }
         QSplitter::handle {
-            background: #1E293B;
+            background: #DCE5EB;
             width: 2px;
         }
         QTabWidget::pane {
-            border: 1px solid #263247;
-            border-radius: 8px;
-            background: #0B1120;
+            border: 1px solid #D7E0E7;
+            border-radius: 9px;
+            background: #FFFFFF;
         }
         QTabBar::tab {
-            background: #111827;
-            color: #94A3B8;
-            border: 1px solid #263247;
+            background: #E9EFF3;
+            color: #5A6E7C;
+            border: 1px solid #D0DBE2;
             padding: 7px 18px;
             margin-right: 3px;
+            font-family: "SimHei", "黑体";
         }
         QTabBar::tab:selected {
-            background: #1D4ED8;
+            background: #245B82;
             color: #FFFFFF;
-            border-color: #3B82F6;
+            border-color: #245B82;
         }
         QLabel#structureMargin {
-            color: #6EE7B7;
+            color: #246B59;
+            font-family: "SimHei", "黑体";
             font-size: 16px;
             font-weight: 700;
         }
