@@ -11,8 +11,8 @@
 |---|---|
 | 软件名称 | 智能环境自适应旋转窗控制系统 |
 | 软著版本 | V1.0 |
-| PC 原型版本 | 0.3.0 |
-| 当前发行版 | [v1.3.0](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.3.0) |
+| PC 原型版本 | 0.3.1 |
+| 当前发行版 | [v1.3.1](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/tag/v1.3.1) |
 | 实现语言 | Python 3、C++17、C99 |
 | 运行平台 | Windows PC + ESP32 |
 
@@ -26,6 +26,13 @@
 ![PC control application](docs/images/pc_app.png)
 
 ## 版本更新
+
+### v1.3.1
+
+- 确认正方形窗框，并按 320 / 247 / 90.5 mm 绘制三层尺寸示意。
+- 结构校核页改为可滚动布局，避免小窗口控件重叠。
+- Excel 增加“正方形加工”页，计算框宽、对角线和名义下料尺寸。
+- [下载 Windows 程序 v1.3.1](https://github.com/LJYI2120/smart-adaptive-rotating-window/releases/download/v1.3.1/SmartWindowController-v1.3.1-windows-x64.zip)。
 
 ### v1.3.0
 

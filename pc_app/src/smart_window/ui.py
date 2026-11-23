@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Deque
 
 import pyqtgraph as pg
-from PySide6.QtCore import QElapsedTimer, Qt, QTimer
-from PySide6.QtGui import QCloseEvent, QFont, QFontDatabase
+from PySide6.QtCore import QElapsedTimer, QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QCloseEvent, QColor, QFont, QFontDatabase, QPainter, QPen
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -26,6 +26,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -71,6 +73,82 @@ class MetricCard(QFrame):
 
     def set_value(self, value: str) -> None:
         self.value_label.setText(value)
+
+
+class SquareFramePreview(QWidget):
+    """Draw the nested square frame using the current design dimensions."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._opening_mm = 90.5
+        self._inner_frame_mm = 247.0
+        self._outer_frame_mm = 320.0
+        self.setMinimumHeight(145)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def sizeHint(self) -> QSize:
+        return QSize(340, 170)
+
+    def set_dimensions(
+        self,
+        opening_mm: float,
+        inner_frame_mm: float,
+        outer_frame_mm: float,
+    ) -> None:
+        self._opening_mm = max(1.0, opening_mm)
+        self._inner_frame_mm = max(self._opening_mm, inner_frame_mm)
+        self._outer_frame_mm = max(self._inner_frame_mm, outer_frame_mm)
+        self.update()
+
+    def _centered_square(self, side: float, center_x: float, center_y: float) -> QRectF:
+        half = side / 2.0
+        return QRectF(center_x - half, center_y - half, side, side)
+
+    def paintEvent(self, event) -> None:
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#FFFFFF"))
+
+        margin = 28.0
+        available = min(self.width() - 2.0 * margin, self.height() - 2.0 * margin)
+        scale = available / self._outer_frame_mm
+        center_x = self.width() / 2.0
+        center_y = self.height() / 2.0
+
+        outer = self._centered_square(self._outer_frame_mm * scale, center_x, center_y)
+        inner = self._centered_square(self._inner_frame_mm * scale, center_x, center_y)
+        opening = self._centered_square(self._opening_mm * scale, center_x, center_y)
+
+        painter.setPen(QPen(QColor("#244C68"), 2.0))
+        painter.setBrush(QColor("#E7EEF3"))
+        painter.drawRect(outer)
+
+        painter.setPen(QPen(QColor("#7895A9"), 1.5))
+        painter.setBrush(QColor("#D8E4EC"))
+        painter.drawRect(inner)
+
+        painter.setPen(QPen(QColor("#9CB5C5"), 1.5))
+        painter.setBrush(QColor("#F5FAFD"))
+        painter.drawRect(opening)
+
+        painter.setPen(QColor("#173B57"))
+        painter.setFont(QFont("SimHei", 8, QFont.Weight.DemiBold))
+        painter.drawText(
+            QRectF(center_x - 80, outer.top() - 23, 160, 20),
+            Qt.AlignmentFlag.AlignCenter,
+            f"外框 {self._outer_frame_mm:.1f} mm",
+        )
+        painter.drawText(
+            QRectF(outer.left() + 6, outer.top() + 5, 116, 18),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"内框 {self._inner_frame_mm:.1f}",
+        )
+        painter.drawText(
+            opening.adjusted(2, 2, -2, -2),
+            Qt.AlignmentFlag.AlignCenter,
+            f"{self._opening_mm:.1f}",
+        )
 
 
 class MainWindow(QMainWindow):
@@ -258,9 +336,16 @@ class MainWindow(QMainWindow):
         tabs.addTab(run_tab, "运行设置")
         tabs.addTab(parameter_tab, "目标参数")
 
-        structure_tab = QWidget()
-        structure_layout = QVBoxLayout(structure_tab)
+        structure_content = QWidget()
+        structure_layout = QVBoxLayout(structure_content)
         structure_layout.setContentsMargins(6, 8, 6, 8)
+        structure_scroll = QScrollArea()
+        structure_scroll.setWidgetResizable(True)
+        structure_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        structure_scroll.setWidget(structure_content)
+
+        self.frame_preview = SquareFramePreview()
+        structure_layout.addWidget(self.frame_preview)
 
         dimensions_group = QGroupBox("模型关键尺寸（mm）")
         dimensions_form = QFormLayout(dimensions_group)
@@ -313,7 +398,7 @@ class MainWindow(QMainWindow):
         climate_layout.addWidget(climate)
         structure_layout.addWidget(climate_group)
         structure_layout.addStretch(1)
-        tabs.addTab(structure_tab, "结构校核")
+        tabs.addTab(structure_scroll, "结构校核")
 
         layout.addWidget(tabs, 1)
         return panel
@@ -400,6 +485,7 @@ class MainWindow(QMainWindow):
         index = self.mode_combo.findData(int(self.config.mode))
         if index >= 0:
             self.mode_combo.setCurrentIndex(index)
+        self._update_frame_preview()
         self._update_structure_estimate()
 
     def _connect_signals(self) -> None:
@@ -414,12 +500,21 @@ class MainWindow(QMainWindow):
         self.mode_combo.currentIndexChanged.connect(self._mode_changed)
         self.urumqi_button.clicked.connect(self._apply_urumqi_preset)
         for spin in (
+            self.inner_opening_spin,
+            self.inner_frame_spin,
+            self.outer_frame_spin,
             self.mass_spin,
             self.center_offset_spin,
             self.gear_ratio_spin,
             self.motor_torque_spin,
         ):
             spin.valueChanged.connect(self._update_structure_estimate)
+        for spin in (
+            self.inner_opening_spin,
+            self.inner_frame_spin,
+            self.outer_frame_spin,
+        ):
+            spin.valueChanged.connect(self._update_frame_preview)
 
     def _create_timers(self) -> None:
         self.poll_timer = QTimer(self)
@@ -562,6 +657,13 @@ class MainWindow(QMainWindow):
             f"直驱余量 {result.direct_drive_margin:.2f}×"
         )
         self.structure_advice_label.setText(result.recommendation)
+
+    def _update_frame_preview(self) -> None:
+        self.frame_preview.set_dimensions(
+            self.inner_opening_spin.value(),
+            self.inner_frame_spin.value(),
+            self.outer_frame_spin.value(),
+        )
 
     def send_heartbeat(self) -> None:
         if self.serial_link.connected and self.auto_heartbeat_check.isChecked():

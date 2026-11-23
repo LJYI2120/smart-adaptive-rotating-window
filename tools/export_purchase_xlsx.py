@@ -50,8 +50,8 @@ CORE_ITEMS = [
 MECH_ITEMS = [
     ("机械", "5mm内径轴承", "双轴承支承转轴", 2, "个", 6, 12, "必买", "建议带防尘盖"),
     ("机械", "304不锈钢M3/M4螺丝套装", "含螺母、垫片", 1, "套", 15, 30, "必买", "户外防锈"),
-    ("机械", "2020/1515铝型材及角件", "外框外边320mm，按完整长宽下料", 1, "套", 50, 90, "必买", "矩形另一边尺寸待补"),
-    ("机械", "激光切割亚克力窗扇", "3～5mm，按完整长宽", 1, "片", 30, 60, "必买", "需补另一条边长"),
+    ("机械", "2020/1515铝型材及角件", "外框4×320mm、内框4×247mm", 1, "套", 60, 130, "必买", "正方形对称接角下料"),
+    ("机械", "激光切割亚克力窗扇", "3～5mm，建议247×247mm", 1, "片", 30, 60, "必买", "按实际装配槽复核"),
     ("材料", "辐射制冷膜样品", "先买小样验证附着与耐候", 1, "片", 20, 50, "必买", "不要直接购买大卷"),
     ("防护", "IP65防水接线盒", "建议200×120×75mm以上", 1, "个", 25, 50, "推荐", "容纳ESP32和驱动"),
     ("防护", "防水电缆接头", "M12/M16", 6, "个", 2, 4, "推荐", "电源、电机和传感器"),
@@ -75,7 +75,7 @@ OUTDOOR_ITEMS = [
 ]
 
 CHECK_ITEMS = (
-    "确认矩形窗另一条边尺寸和板材厚度",
+    "确认正方形框架四边、板材厚度和接角方式",
     "测量完整质量与质心偏离转轴距离",
     "确认减速器输出轴径和联轴器孔径",
     "确认减速器自锁能力和额定输出力矩",
@@ -270,12 +270,12 @@ def add_summary(
         fill=TITLE_FILL,
         alignment=Alignment(horizontal="center"),
     )
-    sheet["A3"] = "适用地区：乌鲁木齐　|　原型质量：2～3 kg　|　版本：v1.3.0"
+    sheet["A3"] = "适用地区：乌鲁木齐　|　正方形外框320 mm　|　质量2～3 kg　|　版本：v1.3.1"
 
     project_rows = [
-        ("内框内边", 90.5, "mm", "待补完整矩形另一边尺寸"),
-        ("内框外边", 247.0, "mm", "关键结构尺寸"),
-        ("外框外边", 320.0, "mm", "关键结构尺寸"),
+        ("内框内边", 90.5, "mm", "正方形内开口边长"),
+        ("内框外边", 247.0, "mm", "正方形内框外边长"),
+        ("外框外边", 320.0, "mm", "正方形整体外框边长"),
         ("移动部件质量", 2.5, "kg", "设计区间2～3 kg"),
         ("默认质心偏心", 10.0, "mm", "必须通过实测确认"),
         ("推荐减速比", 5.0, ":1", "优先自锁蜗轮/行星减速"),
@@ -351,7 +351,7 @@ def add_summary(
     sheet.merge_cells("A17:H18")
     sheet["A17"] = (
         "说明：表中价格为参考零售价，未含运费。风速、雨雪和温度设备购买前需扩展固件采集"
-        "与安全逻辑。矩形窗另一条边尺寸、实测质心与减速器输出轴径确定后，方可最终下料。"
+        "与安全逻辑。窗框为正方形；实测质心与减速器输出轴径确定后，方可最终下料。"
     )
     sheet["A17"].alignment = Alignment(wrap_text=True, vertical="center")
     sheet["A17"].fill = PatternFill("solid", fgColor="FFF7E6")
@@ -360,6 +360,80 @@ def add_summary(
 
     for column, width in enumerate((16, 13, 12, 24, 3, 28, 16, 16), start=1):
         sheet.column_dimensions[get_column_letter(column)].width = width
+    sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.fitToWidth = 1
+    sheet.sheet_properties.pageSetUpPr.fitToPage = True
+
+
+def add_square_geometry_sheet(workbook: Workbook) -> None:
+    sheet = workbook.create_sheet("正方形加工")
+    sheet.merge_cells("A1:E1")
+    set_cell(
+        sheet["A1"],
+        font_name="宋体",
+        size=18,
+        bold=True,
+        color="173B57",
+        fill=TITLE_FILL,
+        alignment=Alignment(horizontal="center", vertical="center"),
+    )
+    sheet["A1"] = "正方形窗框加工尺寸"
+
+    headers = ("项目", "计算式/名义值", "数值", "单位", "说明")
+    for column, header in enumerate(headers, start=1):
+        cell = sheet.cell(row=3, column=column, value=header)
+        set_cell(
+            cell,
+            font_name="黑体",
+            bold=True,
+            color="FFFFFF",
+            fill=HEADER_FILL,
+            alignment=Alignment(horizontal="center", vertical="center"),
+        )
+
+    rows = [
+        ("内框开口边长", "输入", 90.5, "mm", "正方形内开口"),
+        ("内框外边边长", "输入", 247.0, "mm", "正方形内框外轮廓"),
+        ("外框外边边长", "输入", 320.0, "mm", "正方形整体外轮廓"),
+        ("内框单侧框宽", "=(247.0-90.5)/2", "=(C5-C4)/2", "mm", "内框外边至开口的单侧距离"),
+        ("外框单侧框宽", "=(320.0-247.0)/2", "=(C6-C5)/2", "mm", "外框外边至内框外边的单侧距离"),
+        ("开口对角线", "90.5×√2", "=C4*SQRT(2)", "mm", "开口最大对角线"),
+        ("内框对角线", "247×√2", "=C5*SQRT(2)", "mm", "内框外边最大对角线"),
+        ("外框对角线", "320×√2", "=C6*SQRT(2)", "mm", "外框最大对角线"),
+        ("外框名义下料", "4段，名义边长320", 320.0, "mm", "最终按型材接角方式扣除接缝"),
+        ("内框名义下料", "4段，名义边长247", 247.0, "mm", "最终按型材接角方式扣除接缝"),
+        ("窗扇面板参考", "247×247", 247.0, "mm", "若面板装在开口内则按90.5×90.5"),
+    ]
+    for index, values in enumerate(rows, start=4):
+        for column, value in enumerate(values, start=1):
+            cell = sheet.cell(row=index, column=column, value=value)
+            set_cell(
+                cell,
+                fill=ALT_FILL if index % 2 == 0 else None,
+                alignment=Alignment(
+                    horizontal="center" if column in (3, 4) else "left",
+                    vertical="center",
+                    wrap_text=True,
+                ),
+            )
+            if isinstance(value, (int, float)) and column == 3:
+                cell.number_format = "0.00"
+        sheet.row_dimensions[index].height = 34
+
+    sheet.merge_cells("A16:E18")
+    sheet["A16"] = (
+        "结构提示：正方形外框名义边长为320 mm，内外框必须四边对称。轴承、转轴和"
+        "电机支架应围绕正方形中心布置，使2～3 kg窗扇质心尽量接近转轴中心。"
+    )
+    sheet["A16"].alignment = Alignment(wrap_text=True, vertical="center")
+    sheet["A16"].fill = PatternFill("solid", fgColor="FFF7E6")
+    sheet["A16"].font = Font(name="仿宋", size=10.5, color="7A4E00")
+    sheet["A16"].border = BORDER
+
+    for column, width in enumerate((24, 34, 14, 10, 48), start=1):
+        sheet.column_dimensions[get_column_letter(column)].width = width
+    sheet.freeze_panes = "A4"
+    sheet.sheet_view.showGridLines = False
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.fitToWidth = 1
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
@@ -444,6 +518,7 @@ def build_workbook(output: Path) -> None:
         OUTDOOR_ITEMS,
     )
     add_summary(workbook, ranges)
+    add_square_geometry_sheet(workbook)
     add_check_sheet(workbook)
     workbook.properties.title = "智能环境自适应旋转窗控制系统硬件采购清单"
     workbook.properties.subject = "乌鲁木齐条件，320 mm外框，2～3 kg原型"
@@ -453,7 +528,14 @@ def build_workbook(output: Path) -> None:
     workbook.save(output)
 
     reopened = load_workbook(output, read_only=True, data_only=False)
-    expected = {"封面与汇总", "核心采购", "机械加工", "户外增强", "采购核对"}
+    expected = {
+        "封面与汇总",
+        "核心采购",
+        "机械加工",
+        "户外增强",
+        "正方形加工",
+        "采购核对",
+    }
     if set(reopened.sheetnames) != expected:
         raise RuntimeError("generated workbook sheets do not match")
     reopened.close()
